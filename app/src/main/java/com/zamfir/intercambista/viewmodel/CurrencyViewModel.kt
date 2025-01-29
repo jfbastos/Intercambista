@@ -27,13 +27,13 @@ class CurrencyViewModel @Inject constructor(private val repository : CurrencyRes
 
     fun fetchCountries() = viewModelScope.launch{
         _uiLoadingState.value = LoadingState(1)
-        delay(2000)
+
         repository.fetchAvaliableCurrencies()
-        delay(2000)
+
         _uiLoadingState.value = LoadingState(2)
-        delay(2000)
+
         countriesRepository.fetchCountryByCurrency()
-        delay(2000)
+
         _uiLoadingState.value = LoadingState(-1)
     }
 
