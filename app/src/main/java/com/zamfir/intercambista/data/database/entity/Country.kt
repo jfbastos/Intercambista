@@ -4,10 +4,11 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "COUNTRY")
+@Entity(tableName = "CURRENCY_HISTORY")
 data class Country(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "ID") var id : Long = 0,
-    @ColumnInfo(name = "CODE") var code : String = "",
-    @ColumnInfo(name = "SYMBOL") var symbol : String = "",
-    @ColumnInfo(name = "FLAG_URL") var flagUrl : String = ""
+    @ColumnInfo(name = "BASE_CODE") var baseCode : String = "",
+    @ColumnInfo(name = "IN_CODE") var inCode : String = "",
+    @ColumnInfo(name = "VALUE") var value : String = "",
+    @ColumnInfo(name = "CREATED_AT") var createAt : String = ""
 )

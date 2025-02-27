@@ -17,9 +17,12 @@ interface CurrencyDao {
     fun getCurrencies() : List<Currency>?
 
     @Query("SELECT * FROM CURRENCY WHERE IS_FAVORITED = 1")
-    fun getFavoritedCurrencies() : Flow<List<Currency>?>
+    fun getFavoritedCurrencies() : List<Currency>?
 
     @Query("UPDATE CURRENCY SET FLAG = :flagUrl, SYMBOL = :symbol WHERE ID = :id")
     fun updateCurrencyInfo(flagUrl : String, symbol : String, id : Long)
+
+    @Query("SELECT * FROM CURRENCY WHERE CODE LIKE :code")
+    fun getCurrencyByCode(code : String) : Currency?
 
 }

@@ -1,49 +1,105 @@
 package com.zamfir.intercambista.viewmodel
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zamfir.intercambista.data.database.entity.Currency
 import com.zamfir.intercambista.data.repository.CountryRepository
 import com.zamfir.intercambista.data.repository.CurrencyRespository
+import com.zamfir.intercambista.viewmodel.state.BaseCurrencyState
 import com.zamfir.intercambista.viewmodel.state.CurrencyState
+import com.zamfir.intercambista.viewmodel.state.SaveBaseCurrencyState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-
-data class LoadingState(val progress : Int = -1)
-
 
 @HiltViewModel
 class CurrencyViewModel @Inject constructor(private val repository : CurrencyRespository, private val countriesRepository: CountryRepository) : ViewModel() {
 
-    private val _uiCurrencyState = MutableStateFlow(CurrencyState())
-    val uiCurrencyState : StateFlow<CurrencyState> = _uiCurrencyState.asStateFlow()
+    private val _uiCurrenciesState = MutableStateFlow(CurrencyState())
+    val uiCurrenciesState : StateFlow<CurrencyState> = _uiCurrenciesState.asStateFlow()
 
-    private val _uiLoadingState = MutableStateFlow(LoadingState())
-    val uiLoadingState : StateFlow<LoadingState> = _uiLoadingState.asStateFlow()
+    private val _uiBaseCurrencyLiveData = MutableLiveData<Event<BaseCurrencyState>>()
+    val uiBaseCurrencyLiveData : LiveData<Event<BaseCurrencyState>> = _uiBaseCurrencyLiveData
 
-    fun fetchCountries() = viewModelScope.launch{
-        _uiLoadingState.value = LoadingState(1)
+    private val _uiSaveCurrencyState = MutableStateFlow(SaveBaseCurrencyState())
+    val uiSaveCurrencyState : StateFlow<SaveBaseCurrencyState> = _uiSaveCurrencyState
 
-        repository.fetchAvaliableCurrencies()
+    private val _uiBaseCurrencyState = MutableStateFlow(BaseCurrencyState())
+    val uiBaseCurrencyState : StateFlow<BaseCurrencyState> = _uiBaseCurrencyState
 
-        _uiLoadingState.value = LoadingState(2)
-
-        countriesRepository.fetchCountryByCurrency()
-
-        _uiLoadingState.value = LoadingState(-1)
-    }
+    private val _uiFavCurrenciesState = MutableStateFlow(listOf<Currency>())
+    val uiFavCurrenciesState : StateFlow<List<Currency>> = _uiFavCurrenciesState
 
     fun getCountries() = viewModelScope.launch {
-        _uiCurrencyState.value = CurrencyState(result = repository.getCurrencies() ?: listOf())
+        _uiCurrenciesState.value = CurrencyState(loadingStage = 1)
+        val dbCurrencies = repository.getCurrencies()
+
+        if(dbCurrencies.isNullOrEmpty()){
+            delay(2000)
+            repository.fetchAvailableCurrencies()
+            delay(2000)
+            _uiCurrenciesState.value = CurrencyState(loadingStage = 2)
+            delay(2000)
+            countriesRepository.fetchCountryByCurrency()
+            delay(2000)
+            _uiCurrenciesState.value = CurrencyState(loadingStage = -1)
+        }else{
+            _uiCurrenciesState.value = CurrencyState(result = dbCurrencies)
+        }
     }
 
     fun filterCurrency(query : String) = viewModelScope.launch{
         val itens =  repository.getCurrencies() ?: listOf()
-        if(query.isBlank()) _uiCurrencyState.value = CurrencyState(result = itens)
-        else _uiCurrencyState.value = CurrencyState(result = itens.filter { it.info.contains(query, ignoreCase = true) })
+        if(query.isBlank()) _uiCurrenciesState.value = CurrencyState(result = itens)
+        else _uiCurrenciesState.value = CurrencyState(result = itens.filter { it.info.contains(query, ignoreCase = true) })
+    }
+
+    fun setBaseCurrency(currency : Currency) = viewModelScope.launch {
+        try{
+            repository.saveBaseCurrency(currency.code)
+            _uiSaveCurrencyState.value = SaveBaseCurrencyState(isSuccess = true)
+        }catch (e : Exception){
+            _uiSaveCurrencyState.value = SaveBaseCurrencyState(exception = e)
+        }
+    }
+
+    fun getBaseCurrencyAsLiveData() = viewModelScope.launch {
+        val baseCurrencyPreference = repository.getBaseCurrencyPreference()
+
+        baseCurrencyPreference.collectLatest { baseCurrencyCode ->
+            if(baseCurrencyCode.isBlank()) {
+                _uiBaseCurrencyLiveData.value = Event(BaseCurrencyState(baseCurrency = null))
+            }else{
+                val moeda = repository.getCurrencyByCode(baseCurrencyCode)
+                _uiBaseCurrencyLiveData.value = Event(BaseCurrencyState(baseCurrency = moeda))
+            }
+        }
+    }
+
+    fun getBaseCurrencyAsStateFlow() = viewModelScope.launch {
+        val baseCurrencyPreference = repository.getBaseCurrencyPreference()
+
+        baseCurrencyPreference.collectLatest { baseCurrencyCode ->
+            if(baseCurrencyCode.isBlank()) {
+                _uiBaseCurrencyState.value = BaseCurrencyState(baseCurrency = null)
+            }else{
+                val moeda = repository.getCurrencyByCode(baseCurrencyCode)
+                _uiBaseCurrencyState.value = BaseCurrencyState(baseCurrency = moeda)
+            }
+        }
+    }
+
+    fun getFavCurrencies() = viewModelScope.launch {
+        _uiFavCurrenciesState.value = repository.getFavCurrencies() ?: listOf()
     }
 }
