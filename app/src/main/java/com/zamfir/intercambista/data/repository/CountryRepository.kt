@@ -2,50 +2,36 @@ package com.zamfir.intercambista.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
-import com.google.gson.JsonArray
 import com.google.gson.reflect.TypeToken
 import com.zamfir.intercambista.data.database.AppDatabase
 import com.zamfir.intercambista.data.rest.dto.restcountries.CountriesInfo
 import com.zamfir.intercambista.data.rest.dto.restcountries.CountryApiResponseDTO
 import com.zamfir.intercambista.data.rest.service.RestCountriesService
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 import javax.inject.Inject
 
 class CountryRepository @Inject constructor(private val restCountryService: RestCountriesService, private val appDatabase: AppDatabase){
 
-    suspend fun fetchCountryByCurrency() = withContext(Dispatchers.IO){
+    suspend fun fetchCountryByCurrency(onFinish : () -> Unit) = withContext(Dispatchers.IO){
 
-        restCountryService.fetchDataByCountryCurrency()?.enqueue(object : Callback<JsonArray> {
-            override fun onResponse(call: Call<JsonArray>, response: Response<JsonArray>) {
-                try{
-                    if(response.isSuccessful){
-                        val gson = Gson()
-                        val type = object : TypeToken<CountriesInfo>() {}.type
-                        val values = gson.fromJson<CountriesInfo>(response.body().toString(), type)
+        val request = restCountryService.fetchDataByCountryCurrency()?.execute() ?: return@withContext
 
-                        saveCurrencyInfo(values)
-                    }
-                }catch (e : Exception){
-                    Log.e("DEBUG", "Failing in validating ${e.stackTraceToString()}")
-                }
-            }
+        if(request.isSuccessful){
+            val gson = Gson()
+            val type = object : TypeToken<CountriesInfo>() {}.type
+            val values = gson.fromJson<CountriesInfo>(request.body().toString(), type)
 
-            override fun onFailure(call: Call<JsonArray>, t: Throwable) {
-                Log.d("DEBUG", "Response : $t")
-            }
-        })
+            saveCurrencyInfo(values)
+
+            onFinish.invoke()
+        }
     }
 
-    private fun saveCurrencyInfo(countryInfo: ArrayList<CountryApiResponseDTO>) = CoroutineScope(Dispatchers.IO).launch {
+    private fun saveCurrencyInfo(countryInfo: ArrayList<CountryApiResponseDTO>){
         val currencies = appDatabase.currencyDao().getCurrencies()
 
-        if(currencies.isNullOrEmpty()) return@launch
+        if(currencies.isNullOrEmpty()) return
         try{
             countryInfo.forEach { countryInfo ->
                 val countryCurrencyCode = countryInfo.currencyInfo.keys.firstOrNull()

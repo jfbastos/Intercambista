@@ -18,6 +18,7 @@ class MainActivity : AppCompatActivity() {
 
         installSplashScreen().apply {
             viewModel.getBaseCurrencyAsLiveData()
+            //viewModel.requestUpdateCurrencies()
         }
 
         viewModel.uiBaseCurrencyLiveData.observe(this){ event ->

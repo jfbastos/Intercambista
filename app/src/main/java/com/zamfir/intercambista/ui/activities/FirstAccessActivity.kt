@@ -30,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,7 +40,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -50,10 +48,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import coil3.compose.AsyncImage
 import com.zamfir.intercambista.data.database.entity.Currency
 import com.zamfir.intercambista.ui.components.AlertDialogComponent
 import com.zamfir.intercambista.ui.components.HorizontalSpacerOf
+import com.zamfir.intercambista.ui.components.ImageComponent
 import com.zamfir.intercambista.ui.components.SearchfieldComponent
 import com.zamfir.intercambista.ui.theme.IntercambistaTheme
 import com.zamfir.intercambista.ui.theme.PurpleBlue
@@ -91,7 +89,7 @@ class FirstAccessActivity : ComponentActivity(){
                         finish()
                     }
                     currenciesState.loadingStage == -1 -> {
-                        SelectCurrencyScreen(viewModel, onSearch = { query ->
+                        SelectCurrencyScreen(currenciesState.result, onSearch = { query ->
                             viewModel.filterCurrency(query)
                         }, onItemClick = { currency ->
                             viewModel.setBaseCurrency(currency)
@@ -156,14 +154,7 @@ fun LoadingScreen(progress : Int){
 }
 
 @Composable
-private fun SelectCurrencyScreen(viewModel: CurrencyViewModel, onSearch: (String) -> Unit, onItemClick: (Currency) -> Unit) {
-    val currencyUiState by viewModel.uiCurrenciesState.collectAsState()
-
-    MainScreen(currencyUiState.result, onSearch, onItemClick)
-}
-
-@Composable
-private fun MainScreen(currencies: List<Currency>, onSearch: (String) -> Unit, onItemClick: (Currency) -> Unit) {
+private fun SelectCurrencyScreen(currencies: List<Currency>, onSearch: (String) -> Unit, onItemClick: (Currency) -> Unit) {
     Column(
         Modifier
             .background(PurpleBlue)
@@ -205,8 +196,6 @@ private fun MainScreen(currencies: List<Currency>, onSearch: (String) -> Unit, o
         }
     }
 }
-
-
 
 @Composable
 fun CurrencyList(currencies : List<Currency>, onItemClick: (Currency) -> Unit){
@@ -254,12 +243,12 @@ fun CurrencyListItem(currency : Currency, onItemClick : () -> Unit){
         .clip(shape = RoundedCornerShape(12.dp))
         .background(Color.White)
         .padding(8.dp)
-        .clickable { showDialog = true }){
-        AsyncImage(
-            model = currency.flag,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
+        .clickable { showDialog = true }
+    ){
+
+        ImageComponent(
+            currency.flag,
+            Modifier
                 .size(30.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .align(Alignment.CenterVertically)
@@ -273,14 +262,12 @@ fun CurrencyListItem(currency : Currency, onItemClick : () -> Unit){
 
         Spacer(modifier = Modifier.weight(1.0f))
 
-        Text(text = currency.symbol, modifier = Modifier.align(Alignment.CenterVertically), fontSize = 16.sp, color = Color.Black)
+        Text(text = currency.symbol.ifBlank { "-" }, modifier = Modifier.align(Alignment.CenterVertically), fontSize = 16.sp, color = Color.Black)
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun FirstAccessPreview() {
-    IntercambistaTheme {
-        MainScreen(listOf(), {}) { }
-    }
+    IntercambistaTheme {}
 }

@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.zamfir.intercambista.data.database.entity.Currency
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CurrencyDao {
@@ -13,7 +12,7 @@ interface CurrencyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addCurrency(currencies : List<Currency>)
 
-    @Query("SELECT * FROM CURRENCY ORDER BY CODE ASC")
+    @Query("SELECT * FROM CURRENCY ORDER BY INFO ASC")
     fun getCurrencies() : List<Currency>?
 
     @Query("SELECT * FROM CURRENCY WHERE IS_FAVORITED = 1")
@@ -25,4 +24,9 @@ interface CurrencyDao {
     @Query("SELECT * FROM CURRENCY WHERE CODE LIKE :code")
     fun getCurrencyByCode(code : String) : Currency?
 
+    @Query("UPDATE CURRENCY SET IS_FAVORITED = 1 WHERE CODE IN (:favorites)")
+    fun saveFavoritesCurrencies(favorites : List<String>)
+
+    @Query("UPDATE CURRENCY SET IS_FAVORITED = 0")
+    fun resetFavorites()
 }

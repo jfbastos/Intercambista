@@ -11,14 +11,10 @@ import com.zamfir.intercambista.viewmodel.state.BaseCurrencyState
 import com.zamfir.intercambista.viewmodel.state.CurrencyState
 import com.zamfir.intercambista.viewmodel.state.SaveBaseCurrencyState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -40,19 +36,22 @@ class CurrencyViewModel @Inject constructor(private val repository : CurrencyRes
     private val _uiFavCurrenciesState = MutableStateFlow(listOf<Currency>())
     val uiFavCurrenciesState : StateFlow<List<Currency>> = _uiFavCurrenciesState
 
+    private val _uiSavingFavCurrenciesState = MutableStateFlow(false)
+    val uiSavingFavCurrenciesState : StateFlow<Boolean> = _uiSavingFavCurrenciesState
+
     fun getCountries() = viewModelScope.launch {
         _uiCurrenciesState.value = CurrencyState(loadingStage = 1)
         val dbCurrencies = repository.getCurrencies()
 
         if(dbCurrencies.isNullOrEmpty()){
-            delay(2000)
-            repository.fetchAvailableCurrencies()
-            delay(2000)
-            _uiCurrenciesState.value = CurrencyState(loadingStage = 2)
-            delay(2000)
-            countriesRepository.fetchCountryByCurrency()
-            delay(2000)
-            _uiCurrenciesState.value = CurrencyState(loadingStage = -1)
+            repository.fetchAvailableCurrencies {
+                viewModelScope.launch {
+                    _uiCurrenciesState.value = CurrencyState(loadingStage = 2)
+                    countriesRepository.fetchCountryByCurrency {
+                        _uiCurrenciesState.value = CurrencyState(loadingStage = -1)
+                    }
+                }
+            }
         }else{
             _uiCurrenciesState.value = CurrencyState(result = dbCurrencies)
         }
@@ -84,6 +83,16 @@ class CurrencyViewModel @Inject constructor(private val repository : CurrencyRes
                 _uiBaseCurrencyLiveData.value = Event(BaseCurrencyState(baseCurrency = moeda))
             }
         }
+    }
+
+    fun saveFavCurrencies(selectedCurrencies : List<String>) = viewModelScope.launch {
+        repository.saveFavoritedCurrencies(selectedCurrencies).onSuccess {
+            _uiSavingFavCurrenciesState.value = true
+        }
+    }
+
+    fun requestUpdateCurrencies() = viewModelScope.launch {
+        repository.fetchCurrencyExchange()
     }
 
     fun getBaseCurrencyAsStateFlow() = viewModelScope.launch {

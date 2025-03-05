@@ -32,6 +32,9 @@
         <activity android:name=".ui.activities.CurrencyActivity"
             android:theme="@style/Theme.Intercambista.material"
             android:exported="false"/>
+        <activity android:name=".ui.activities.CurrencyFavSelectionScreen"
+            android:theme="@style/Theme.Intercambista.material"
+            android:exported="false"/>
     </application>
 
 </manifest>

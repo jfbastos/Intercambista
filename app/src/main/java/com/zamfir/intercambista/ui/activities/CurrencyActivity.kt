@@ -1,5 +1,6 @@
 package com.zamfir.intercambista.ui.activities
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -42,8 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,10 +50,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
-import com.zamfir.intercambista.R
 import com.zamfir.intercambista.data.database.entity.Currency
 import com.zamfir.intercambista.ui.components.HorizontalSpacerOf
+import com.zamfir.intercambista.ui.components.ImageComponent
 import com.zamfir.intercambista.ui.theme.Gray80
 import com.zamfir.intercambista.ui.theme.IntercambistaTheme
 import com.zamfir.intercambista.ui.theme.PurpleBlue
@@ -85,7 +83,10 @@ class CurrencyActivity : ComponentActivity() {
 
                 Scaffold (
                     floatingActionButton = {
-                        FloatingActionButton(containerColor = PurpleBlue, contentColor = Color.White ,onClick = {}) {
+                        FloatingActionButton(containerColor = PurpleBlue, contentColor = Color.White ,onClick = {
+                            startActivity(Intent(this@CurrencyActivity, CurrencyFavSelectionScreen::class.java))
+                            finish()
+                        }) {
                             Icon(Icons.Filled.Add, null)
                         }
                     }
@@ -149,11 +150,9 @@ fun BaseCurrencyHeader(baseCurrency: Currency?) {
 
         Row{
             Row(Modifier.align(alignment = Alignment.Bottom)) {
-                AsyncImage(
-                    model = baseCurrency?.flag,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
+                ImageComponent(
+                    baseCurrency?.flag ?: "",
+                    Modifier
                         .size(height = 48.dp, width = 56.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .align(Alignment.CenterVertically)
@@ -205,11 +204,9 @@ fun BaseCurrencyHeader(baseCurrency: Currency?) {
 @Composable
 fun CurrencyListItem(currency : Currency){
     Box(Modifier.clip(RoundedCornerShape(12.dp)).size(width = 120.dp, height = 80.dp).background(Color.White).padding(12.dp)){
-        AsyncImage(
-            model = currency.flag,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
+        ImageComponent(
+            currency.flag,
+            Modifier
                 .size(width = 36.dp, height = 28.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .align(Alignment.TopStart)
