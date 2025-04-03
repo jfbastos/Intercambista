@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "CURRENCY_HISTORY")
-data class Country(
+data class CurrencyHistory(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "ID") var id : Long = 0,
     @ColumnInfo(name = "BASE_CODE") var baseCode : String = "",
     @ColumnInfo(name = "IN_CODE") var inCode : String = "",

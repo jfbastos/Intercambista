@@ -18,8 +18,11 @@ interface CurrencyDao {
     @Query("SELECT * FROM CURRENCY WHERE IS_FAVORITED = 1")
     fun getFavoritedCurrencies() : List<Currency>?
 
-    @Query("UPDATE CURRENCY SET FLAG = :flagUrl, SYMBOL = :symbol WHERE ID = :id")
-    fun updateCurrencyInfo(flagUrl : String, symbol : String, id : Long)
+    @Query("SELECT * FROM CURRENCY currency INNER JOIN CURRENCY_HISTORY chistory ON currency.CODE = chistory.IN_CODE WHERE DATE(DATETIME(chistory.CREATED_AT)) < DATE(DATETIME('now', 'localtime')) ")
+    fun getCurrenciesToUpdate() : List<Currency>?
+
+    @Query("UPDATE CURRENCY SET FLAG = :flagUrl, SYMBOL = :symbol WHERE CODE = :code")
+    fun updateCurrencyInfo(flagUrl : String, symbol : String, code : String)
 
     @Query("SELECT * FROM CURRENCY WHERE CODE LIKE :code")
     fun getCurrencyByCode(code : String) : Currency?

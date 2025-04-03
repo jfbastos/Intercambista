@@ -2,13 +2,14 @@ package com.zamfir.intercambista.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,16 +26,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,12 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import com.zamfir.intercambista.ui.components.AlertDialogComponent
 import com.zamfir.intercambista.ui.components.HorizontalSpacerOf
 import com.zamfir.intercambista.ui.components.ImageComponent
@@ -76,7 +77,7 @@ data class Currencies(
 }
 
 @AndroidEntryPoint
-class CurrencyFavSelectionScreen : ComponentActivity() {
+class FavoritesSelectionScreen : ComponentActivity() {
 
     private val viewModel : CurrencyViewModel by viewModels()
 
@@ -88,24 +89,21 @@ class CurrencyFavSelectionScreen : ComponentActivity() {
         setContent {
             IntercambistaTheme {
 
-                val currenciesState by viewModel.uiCurrenciesState.collectAsStateWithLifecycle()
+                val currenciesState by viewModel.uiCurrenciesListState.collectAsStateWithLifecycle()
+                val loadingState by viewModel.uiFirstLoadingCurrenciesState.collectAsStateWithLifecycle()
                 val saveFavoritesState by viewModel.uiSavingFavCurrenciesState.collectAsStateWithLifecycle()
 
                 when{
+                    loadingState.progress != null -> { LoadingCurrenciesScreen() }
                     saveFavoritesState -> {
-                        startActivity(Intent(this@CurrencyFavSelectionScreen, CurrencyActivity::class.java))
+                        startActivity(Intent(this@FavoritesSelectionScreen, CurrencyActivity::class.java))
                         finish()
                     }
-                    currenciesState.loadingStage != -1 -> LoadingScreen(currenciesState.loadingStage)
-                    currenciesState.loadingStage == -1 && currenciesState.result.isEmpty() -> {
-                        LaunchedEffect(key1 = Unit) {
-                            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                                viewModel.getCountries()
-                            }
-                        }
+                    currenciesState.exception != null -> {
+                        Toast.makeText(this, currenciesState.exception!!.message, Toast.LENGTH_SHORT).show()
                     }
-                    currenciesState.loadingStage == -1 -> {
-                        MultipleSelectionScreen(currenciesState.result.map {
+                    else -> {
+                        val filteredList = currenciesState.currencies.filter { it.code != currenciesState.baseCurrency?.code }.map {
                             Currencies(
                                 flagImage = it.flag,
                                 coinSymbol = it.symbol,
@@ -114,13 +112,19 @@ class CurrencyFavSelectionScreen : ComponentActivity() {
                             ).apply {
                                 isSelected.value = it.favorited
                             }
-                        }, onSearch = { query ->
-                            viewModel.filterCurrency(query)
-                        }, onFinishing = { selectedCurrencies ->
-                            viewModel.saveFavCurrencies(selectedCurrencies)
-                        })
+                        }
+
+                        MultipleSelectionScreen(filteredList,
+                            onSearch = { query ->
+                                viewModel.filterCurrency(query)
+                            }, onConfirm = { selectedCurrencies ->
+                                viewModel.saveFavCurrencies(selectedCurrencies)
+                            }, onCancel = {
+                                startActivity(Intent(this@FavoritesSelectionScreen, CurrencyActivity::class.java))
+                                finish()
+                            }
+                        )
                     }
-                    currenciesState.exception != null -> Log.d("DEBUG", "Failed to get countries to select")
                 }
             }
         }
@@ -129,7 +133,7 @@ class CurrencyFavSelectionScreen : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MultipleSelectionScreen(currencies: List<Currencies>, onSearch: (String) -> Job, onFinishing: (List<String>) -> Job) {
+fun MultipleSelectionScreen(currencies: List<Currencies>, onSearch: (String) -> Unit, onCancel: () -> Unit, onConfirm: (List<String>) -> Unit) {
 
     val selectedIndexList = remember { mutableStateOf(currencies.filter { it.isSelected.value }.map { it.coinCode }) }
 
@@ -138,9 +142,10 @@ fun MultipleSelectionScreen(currencies: List<Currencies>, onSearch: (String) -> 
     if(showDialog){
         AlertDialogComponent(
             dialogTitle = "Confirmação",
-            dialogText = "Você selecionou ${selectedIndexList.value.size} modeas, tem certeza que deseja cancelar a seleção?",
+            dialogText = "Você selecionou ${selectedIndexList.value.size} moedas, tem certeza que deseja cancelar a seleção?",
             onConfirmation = {
                 showDialog = false
+                onCancel.invoke()
             },
             onDismissRequest = {
                 showDialog = false
@@ -161,7 +166,7 @@ fun MultipleSelectionScreen(currencies: List<Currencies>, onSearch: (String) -> 
                     showDialog = true
                 } else {
                     showDialog = false
-                    onFinishing.invoke(selectedIndexList.value.toList())
+                    onCancel.invoke()
                 }
             }){
                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -170,7 +175,7 @@ fun MultipleSelectionScreen(currencies: List<Currencies>, onSearch: (String) -> 
     },
         floatingActionButton = {
             ExtendedFloatingActionButton(containerColor = PurpleBlue, text = { Text("Salvar") }, icon = { Icon(Icons.Filled.Check, null)}, onClick = {
-                onFinishing.invoke(selectedIndexList.value.toList())
+                onConfirm.invoke(selectedIndexList.value.toList())
             })
         }){
         Column(
@@ -208,7 +213,6 @@ fun MultipleSelectionScreen(currencies: List<Currencies>, onSearch: (String) -> 
             }
         }
     }
-
 }
 
 @Composable
@@ -264,10 +268,33 @@ fun CurrencyListA(currencies: List<Currencies>, onItemClick: (Currencies) -> Uni
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun CurrencySelectionActivityPreview() {
-    IntercambistaTheme {
+fun LoadingCurrenciesScreen(){
 
+    Box(
+        Modifier
+            .background(PurpleBlue)
+            .fillMaxSize()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier
+            .align(Alignment.Center)
+            .size(200.dp)){
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(100.dp)
+                    .padding(12.dp)
+                    .align(Alignment.CenterHorizontally),
+                color = MaterialTheme.colorScheme.secondary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeWidth = 8.dp,
+                strokeCap = StrokeCap.Round
+            )
+
+            HorizontalSpacerOf(12)
+
+            Text("Obtendo moedas salvas...", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.White)
+
+        }
     }
 }

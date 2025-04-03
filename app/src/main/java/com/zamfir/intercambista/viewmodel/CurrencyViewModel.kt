@@ -1,66 +1,74 @@
 package com.zamfir.intercambista.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zamfir.intercambista.data.database.entity.Currency
-import com.zamfir.intercambista.data.repository.CountryRepository
-import com.zamfir.intercambista.data.repository.CurrencyRespository
+import com.zamfir.intercambista.data.enums.FetchCurrencyInfoStages
+import com.zamfir.intercambista.data.repository.CurrencyRepository
+import com.zamfir.intercambista.data.repository.FetchCurrenciesInfoCallback
 import com.zamfir.intercambista.viewmodel.state.BaseCurrencyState
 import com.zamfir.intercambista.viewmodel.state.CurrencyState
+import com.zamfir.intercambista.viewmodel.state.ExchangeState
+import com.zamfir.intercambista.viewmodel.state.LoadingCurrenciesState
 import com.zamfir.intercambista.viewmodel.state.SaveBaseCurrencyState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class CurrencyViewModel @Inject constructor(private val repository : CurrencyRespository, private val countriesRepository: CountryRepository) : ViewModel() {
+class CurrencyViewModel @Inject constructor(private val repository : CurrencyRepository) : ViewModel() {
 
-    private val _uiCurrenciesState = MutableStateFlow(CurrencyState())
-    val uiCurrenciesState : StateFlow<CurrencyState> = _uiCurrenciesState.asStateFlow()
+    private val _uiCurrenciesListState = MutableStateFlow(CurrencyState())
+    val uiCurrenciesListState : StateFlow<CurrencyState> = _uiCurrenciesListState.asStateFlow()
 
-    private val _uiBaseCurrencyLiveData = MutableLiveData<Event<BaseCurrencyState>>()
-    val uiBaseCurrencyLiveData : LiveData<Event<BaseCurrencyState>> = _uiBaseCurrencyLiveData
+    private val _uiFirstLoadingCurrenciesState = MutableStateFlow(LoadingCurrenciesState())
+    val uiFirstLoadingCurrenciesState : StateFlow<LoadingCurrenciesState> = _uiFirstLoadingCurrenciesState
+
+    private val _uiBaseCurrencyLiveData = MutableLiveData<BaseCurrencyState>()
+    val uiBaseCurrencyLiveData : LiveData<BaseCurrencyState> = _uiBaseCurrencyLiveData
 
     private val _uiSaveCurrencyState = MutableStateFlow(SaveBaseCurrencyState())
     val uiSaveCurrencyState : StateFlow<SaveBaseCurrencyState> = _uiSaveCurrencyState
 
-    private val _uiBaseCurrencyState = MutableStateFlow(BaseCurrencyState())
-    val uiBaseCurrencyState : StateFlow<BaseCurrencyState> = _uiBaseCurrencyState
-
-    private val _uiFavCurrenciesState = MutableStateFlow(listOf<Currency>())
-    val uiFavCurrenciesState : StateFlow<List<Currency>> = _uiFavCurrenciesState
-
     private val _uiSavingFavCurrenciesState = MutableStateFlow(false)
     val uiSavingFavCurrenciesState : StateFlow<Boolean> = _uiSavingFavCurrenciesState
 
-    fun getCountries() = viewModelScope.launch {
-        _uiCurrenciesState.value = CurrencyState(loadingStage = 1)
-        val dbCurrencies = repository.getCurrencies()
+    private val _uiMainScreenState = MutableStateFlow(ExchangeState())
+    val uiMainScreenState : StateFlow<ExchangeState> = _uiMainScreenState
 
-        if(dbCurrencies.isNullOrEmpty()){
-            repository.fetchAvailableCurrencies {
+    fun getCountries() = viewModelScope.launch {
+        _uiFirstLoadingCurrenciesState.value = LoadingCurrenciesState(progress = FetchCurrencyInfoStages.LOADING_DB_CURRENCIES)
+        repository.prepareDatabaseInfo(object : FetchCurrenciesInfoCallback {
+            override fun onProgress(stage: FetchCurrencyInfoStages) {
+                viewModelScope.launch { _uiFirstLoadingCurrenciesState.value = LoadingCurrenciesState(progress = stage) }
+            }
+
+            override fun onFinish(currencies: List<Currency>, baseCurrency: Currency?) {
                 viewModelScope.launch {
-                    _uiCurrenciesState.value = CurrencyState(loadingStage = 2)
-                    countriesRepository.fetchCountryByCurrency {
-                        _uiCurrenciesState.value = CurrencyState(loadingStage = -1)
-                    }
+                    _uiFirstLoadingCurrenciesState.value = LoadingCurrenciesState(progress = null)
+                    _uiCurrenciesListState.value = CurrencyState(currencies = currencies, baseCurrency =  baseCurrency)
                 }
             }
-        }else{
-            _uiCurrenciesState.value = CurrencyState(result = dbCurrencies)
-        }
+
+            override fun onError(ex: Exception) {
+                viewModelScope.launch {
+                    _uiFirstLoadingCurrenciesState.value = LoadingCurrenciesState(progress = null)
+                    _uiCurrenciesListState.value = CurrencyState(exception = ex)
+                }
+            }
+        })
     }
 
     fun filterCurrency(query : String) = viewModelScope.launch{
         val itens =  repository.getCurrencies() ?: listOf()
-        if(query.isBlank()) _uiCurrenciesState.value = CurrencyState(result = itens)
-        else _uiCurrenciesState.value = CurrencyState(result = itens.filter { it.info.contains(query, ignoreCase = true) })
+        if(query.isBlank()) _uiCurrenciesListState.value = CurrencyState(currencies = itens)
+        else _uiCurrenciesListState.value = CurrencyState(currencies = itens.filter { it.info.contains(query, ignoreCase = true) })
     }
 
     fun setBaseCurrency(currency : Currency) = viewModelScope.launch {
@@ -72,43 +80,65 @@ class CurrencyViewModel @Inject constructor(private val repository : CurrencyRes
         }
     }
 
-    fun getBaseCurrencyAsLiveData() = viewModelScope.launch {
-        val baseCurrencyPreference = repository.getBaseCurrencyPreference()
+    fun setNewBaseCurrency(currency : Currency) = viewModelScope.launch {
+        try{
+            repository.saveBaseCurrency(currency.code)
+            repository.changeBaseCurrency {
+                viewModelScope.launch { _uiSaveCurrencyState.value = SaveBaseCurrencyState(isSuccess = true) }
+            }
+        }catch (e : Exception){
+            _uiSaveCurrencyState.value = SaveBaseCurrencyState(exception = e)
+        }
+    }
 
-        baseCurrencyPreference.collectLatest { baseCurrencyCode ->
+    fun getBaseCurrencyAsLiveData(hasConnection: Boolean) = viewModelScope.launch {
+        try{
+            val baseCurrencyCode = repository.getBaseCurrencyPreference()
+
             if(baseCurrencyCode.isBlank()) {
-                _uiBaseCurrencyLiveData.value = Event(BaseCurrencyState(baseCurrency = null))
+                _uiBaseCurrencyLiveData.value = BaseCurrencyState(baseCurrency = null)
             }else{
                 val moeda = repository.getCurrencyByCode(baseCurrencyCode)
-                _uiBaseCurrencyLiveData.value = Event(BaseCurrencyState(baseCurrency = moeda))
+
+                if(hasConnection){
+                    repository.fetchCurrencyExchange {
+                        viewModelScope.launch { _uiBaseCurrencyLiveData.value = BaseCurrencyState(baseCurrency = moeda) }
+                    }
+                }else{
+                    _uiBaseCurrencyLiveData.value = BaseCurrencyState(baseCurrency = moeda)
+                }
             }
+        }catch (e : Exception){
+            Log.e("DEBUG", "Failed to ge info of first screen. ${e.stackTraceToString()}")
         }
     }
 
     fun saveFavCurrencies(selectedCurrencies : List<String>) = viewModelScope.launch {
-        repository.saveFavoritedCurrencies(selectedCurrencies).onSuccess {
-            _uiSavingFavCurrenciesState.value = true
-        }
-    }
-
-    fun requestUpdateCurrencies() = viewModelScope.launch {
-        repository.fetchCurrencyExchange()
-    }
-
-    fun getBaseCurrencyAsStateFlow() = viewModelScope.launch {
-        val baseCurrencyPreference = repository.getBaseCurrencyPreference()
-
-        baseCurrencyPreference.collectLatest { baseCurrencyCode ->
-            if(baseCurrencyCode.isBlank()) {
-                _uiBaseCurrencyState.value = BaseCurrencyState(baseCurrency = null)
-            }else{
-                val moeda = repository.getCurrencyByCode(baseCurrencyCode)
-                _uiBaseCurrencyState.value = BaseCurrencyState(baseCurrency = moeda)
+        repository.saveFavoritesCurrencies(selectedCurrencies).onSuccess {
+            repository.fetchCurrencyExchangeOnFavorites(selectedCurrencies) {
+                viewModelScope.launch { _uiSavingFavCurrenciesState.value = true }
             }
+        }.onFailure {
+            Log.e("DEBUG", "Failed to save currency : ${it.stackTraceToString()}")
         }
     }
 
-    fun getFavCurrencies() = viewModelScope.launch {
-        _uiFavCurrenciesState.value = repository.getFavCurrencies() ?: listOf()
+    fun getMainScreenInfo(baseCalc : Double) = viewModelScope.launch {
+        try{
+            val baseCurrency = repository.getCurrencyByCode(repository.getBaseCurrencyPreference())
+            val favoritesCurrencies = repository.getFavCurrencies() ?: listOf()
+            val valuesByCurrencies = hashMapOf<String, Double>()
+            val lastUpdate = repository.getLastUpdate()
+
+            favoritesCurrencies.map { it.code }.forEach { code ->
+                valuesByCurrencies[code] = (repository.getValueByCurrency(code)?.value?.toDouble() ?: 0.0).toDouble() * baseCalc
+            }
+
+            _uiMainScreenState.value = ExchangeState(baseCurrency = baseCurrency, favoritesCurrencies = favoritesCurrencies, exchanges = valuesByCurrencies, lastUpdateDatetime = lastUpdate)
+
+        }catch (e : Exception){
+            Log.e("DEBUG", "Falha ao obter valores para tela : ${e.stackTraceToString()}")
+            _uiMainScreenState.value = ExchangeState()
+        }
     }
 }

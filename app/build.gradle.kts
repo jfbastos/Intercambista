@@ -18,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "com.zamfir.intercambista"
-        minSdk = 25
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -35,6 +35,7 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -93,9 +94,11 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
-    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.preference.ktx)
 
     implementation(libs.androidx.core.splashscreen)
+
+    implementation(libs.google.accompanist.systemuicontroller)
 
     // Room
     implementation("androidx.room:room-runtime:2.5.2")

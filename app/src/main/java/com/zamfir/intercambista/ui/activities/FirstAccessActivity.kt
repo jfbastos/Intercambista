@@ -29,7 +29,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,10 +44,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import com.zamfir.intercambista.data.database.entity.Currency
+import com.zamfir.intercambista.data.enums.FetchCurrencyInfoStages
 import com.zamfir.intercambista.ui.components.AlertDialogComponent
 import com.zamfir.intercambista.ui.components.HorizontalSpacerOf
 import com.zamfir.intercambista.ui.components.ImageComponent
@@ -68,34 +66,27 @@ class FirstAccessActivity : ComponentActivity(){
 
         viewModel.getCountries()
 
-        actionBar?.hide()
-
         setContent {
             IntercambistaTheme {
-                val currenciesState by viewModel.uiCurrenciesState.collectAsStateWithLifecycle()
+                val currenciesState by viewModel.uiCurrenciesListState.collectAsStateWithLifecycle()
+                val loadingState by viewModel.uiFirstLoadingCurrenciesState.collectAsStateWithLifecycle()
                 val saveState by viewModel.uiSaveCurrencyState.collectAsStateWithLifecycle()
 
+                if(saveState.isSuccess){
+                    startActivity(Intent(this@FirstAccessActivity, CurrencyActivity::class.java))
+                    finish()
+                }
+
                 when{
-                    currenciesState.loadingStage != -1 -> LoadingScreen(currenciesState.loadingStage)
-                    currenciesState.loadingStage == -1 && currenciesState.result.isEmpty() -> {
-                        LaunchedEffect(key1 = Unit) {
-                            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                                viewModel.getCountries()
-                            }
-                        }
-                    }
-                    saveState.isSuccess -> {
-                        startActivity(Intent(this@FirstAccessActivity, CurrencyActivity::class.java))
-                        finish()
-                    }
-                    currenciesState.loadingStage == -1 -> {
-                        SelectCurrencyScreen(currenciesState.result, onSearch = { query ->
+                    loadingState.progress != null -> LoadingScreen(loadingState.progress)
+                    currenciesState.exception != null -> Log.e("DEBUG", "Failed to get countries to select")
+                    else -> {
+                        SelectCurrencyScreen(currenciesState.currencies, onSearch = { query ->
                             viewModel.filterCurrency(query)
                         }, onItemClick = { currency ->
                             viewModel.setBaseCurrency(currency)
                         })
                     }
-                    currenciesState.exception != null -> Log.d("DEBUG", "Failed to get countries to select")
                 }
             }
         }
@@ -104,10 +95,10 @@ class FirstAccessActivity : ComponentActivity(){
 
 
 @Composable
-fun LoadingScreen(progress : Int){
-
-    var loadingCurrency by remember { mutableStateOf(true) }
+fun LoadingScreen(progress: FetchCurrencyInfoStages?){
+    var loadingCurrency by remember { mutableStateOf(false) }
     var loadingCountryInfo by remember { mutableStateOf(false) }
+    var loadingCurrencies by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -132,21 +123,36 @@ fun LoadingScreen(progress : Int){
             HorizontalSpacerOf(12)
 
             AnimatedVisibility(visible = loadingCurrency) {
-                Text("Carregando moedas...", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.White)
+                Text(progress!!.info, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.White)
             }
 
             AnimatedVisibility(visible = loadingCountryInfo) {
-                Text("Carregando informações dos países...", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.White)
+                Text(progress!!.info, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.White)
+            }
+
+            AnimatedVisibility(visible = loadingCurrencies) {
+                Text(progress!!.info, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.White)
             }
 
             when (progress) {
-                1 -> {
+                FetchCurrencyInfoStages.LOADING_DB_CURRENCIES -> {
+                    loadingCurrencies = true
+                    loadingCountryInfo = false
                     loadingCurrency = false
-                    loadingCountryInfo = true
                 }
-                2 -> {
-                    loadingCurrency = false
+                FetchCurrencyInfoStages.LOADING_AVAILABLE_CURRENCIES -> {
+                    loadingCurrencies = false
+                    loadingCountryInfo = false
+                    loadingCurrency = true
+                }
+                FetchCurrencyInfoStages.LOADING_INFO_CURRENCIES -> {
+                    loadingCurrencies = false
                     loadingCountryInfo = true
+                    loadingCurrency = false
+                }
+
+                null -> {
+                    Log.d("DEBUG", "Status null")
                 }
             }
         }
@@ -228,7 +234,8 @@ fun CurrencyListItem(currency : Currency, onItemClick : () -> Unit){
             onConfirmation = {
                 onItemClick.invoke()
                 showDialog = false
-                             },
+            },
+
             onDismissRequest = {
                 showDialog = false
             },

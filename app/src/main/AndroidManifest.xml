@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -32,7 +33,7 @@
         <activity android:name=".ui.activities.CurrencyActivity"
             android:theme="@style/Theme.Intercambista.material"
             android:exported="false"/>
-        <activity android:name=".ui.activities.CurrencyFavSelectionScreen"
+        <activity android:name=".ui.activities.FavoritesSelectionScreen"
             android:theme="@style/Theme.Intercambista.material"
             android:exported="false"/>
     </application>
