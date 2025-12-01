@@ -3,7 +3,8 @@ package com.zamfir.intercambista.di
 import android.content.Context
 import androidx.room.Room
 import com.zamfir.intercambista.data.database.AppDatabase
-import com.zamfir.intercambista.data.repository.CurrencyRepository
+import com.zamfir.intercambista.data.repository.CoinsRepository
+import com.zamfir.intercambista.data.repository.ExchangeRepository
 import com.zamfir.intercambista.data.rest.service.ExchageRatesService
 import com.zamfir.intercambista.data.rest.service.RestCountriesService
 import dagger.Module
@@ -31,7 +32,7 @@ private val DATA_STORE_NAME = "data_store_intercambista"
 @Module
 @InstallIn(SingletonComponent::class)
 class AppModules {
-    //region Exchange
+    //region ExchangeDto
     @Singleton
     @RestExchange
     @Provides
@@ -53,7 +54,7 @@ class AppModules {
         @ApplicationContext context : Context,
         exchangeRatesService: ExchageRatesService,
         countriesRest : RestCountriesService,
-        appDatabase: AppDatabase) = CurrencyRepository(context, exchangeRatesService, countriesRest, appDatabase)
+        appDatabase: AppDatabase) = ExchangeRepository(context, exchangeRatesService, countriesRest, appDatabase)
     //endregion
 
 
@@ -73,6 +74,13 @@ class AppModules {
     fun provideRetrofitCountryService(@RestCountry countryRetrofit : Retrofit) : RestCountriesService{
         return countryRetrofit.create(RestCountriesService::class.java)
     }
+
+    @Provides
+    fun provideCountriesRepository(
+        @ApplicationContext context : Context,
+        exchangeRatesService: ExchageRatesService,
+        countriesRest : RestCountriesService,
+        appDatabase: AppDatabase) = CoinsRepository(context, exchangeRatesService, countriesRest, appDatabase)
 
     //endregion
 

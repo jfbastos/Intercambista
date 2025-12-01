@@ -12,18 +12,12 @@ android {
     namespace = "com.zamfir.intercambista"
     compileSdk = 35
 
-    val file = rootProject.file("local.properties")
-    val properties = Properties()
-    properties.load(FileInputStream(file))
-
     defaultConfig {
         applicationId = "com.zamfir.intercambista"
-        minSdk = 26
+        minSdk = 30
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
-        buildConfigField("String", "apiKey", properties.getProperty("apiKey"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -90,6 +84,7 @@ dependencies {
 
     implementation(libs.dagger.hilt.android)
     kapt(libs.dagger.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
@@ -100,8 +95,11 @@ dependencies {
 
     implementation(libs.google.accompanist.systemuicontroller)
 
+    implementation("com.google.android.material:material:1.12.0")
+
     // Room
     implementation("androidx.room:room-runtime:2.5.2")
     kapt("androidx.room:room-compiler:2.5.2")
     implementation("androidx.room:room-ktx:2.5.2")
+
 }

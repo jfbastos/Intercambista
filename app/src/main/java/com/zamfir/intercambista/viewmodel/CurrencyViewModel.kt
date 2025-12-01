@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zamfir.intercambista.data.database.entity.Currency
 import com.zamfir.intercambista.data.enums.FetchCurrencyInfoStages
-import com.zamfir.intercambista.data.repository.CurrencyRepository
+import com.zamfir.intercambista.data.repository.ExchangeRepository
 import com.zamfir.intercambista.data.repository.FetchCurrenciesInfoCallback
 import com.zamfir.intercambista.viewmodel.state.BaseCurrencyState
 import com.zamfir.intercambista.viewmodel.state.CurrencyState
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class CurrencyViewModel @Inject constructor(private val repository : CurrencyRepository) : ViewModel() {
+class CurrencyViewModel @Inject constructor(private val repository : ExchangeRepository) : ViewModel() {
 
     private val _uiCurrenciesListState = MutableStateFlow(CurrencyState())
     val uiCurrenciesListState : StateFlow<CurrencyState> = _uiCurrenciesListState.asStateFlow()
@@ -88,28 +88,6 @@ class CurrencyViewModel @Inject constructor(private val repository : CurrencyRep
             }
         }catch (e : Exception){
             _uiSaveCurrencyState.value = SaveBaseCurrencyState(exception = e)
-        }
-    }
-
-    fun getBaseCurrencyAsLiveData(hasConnection: Boolean) = viewModelScope.launch {
-        try{
-            val baseCurrencyCode = repository.getBaseCurrencyPreference()
-
-            if(baseCurrencyCode.isBlank()) {
-                _uiBaseCurrencyLiveData.value = BaseCurrencyState(baseCurrency = null)
-            }else{
-                val moeda = repository.getCurrencyByCode(baseCurrencyCode)
-
-                if(hasConnection){
-                    repository.fetchCurrencyExchange {
-                        viewModelScope.launch { _uiBaseCurrencyLiveData.value = BaseCurrencyState(baseCurrency = moeda) }
-                    }
-                }else{
-                    _uiBaseCurrencyLiveData.value = BaseCurrencyState(baseCurrency = moeda)
-                }
-            }
-        }catch (e : Exception){
-            Log.e("DEBUG", "Failed to ge info of first screen. ${e.stackTraceToString()}")
         }
     }
 

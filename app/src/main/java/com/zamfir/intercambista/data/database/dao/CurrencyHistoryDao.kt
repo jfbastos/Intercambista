@@ -13,7 +13,10 @@ interface CurrencyHistoryDao {
     fun insert(history : CurrencyHistory)
 
     @Query("SELECT * FROM CURRENCY_HISTORY")
-    fun getAllHistory() : List<CurrencyHistory>
+    fun getAllHistory() : List<CurrencyHistory>?
+
+    @Query("SELECT CREATED_AT FROM CURRENCY_HISTORY ORDER BY DATETIME(CREATED_AT) DESC LIMIT 1")
+    fun getLastUpdateTime() : String?
 
     @Query("SELECT * FROM CURRENCY_HISTORY WHERE IN_CODE = :code")
     fun getHistoryByCode(code : String) : CurrencyHistory?
