@@ -1,6 +1,5 @@
 package com.zamfir.intercambista.presentation.screen.main
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -8,27 +7,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
@@ -36,12 +29,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.zamfir.intercambista.R
 import com.zamfir.intercambista.presentation.screen.commom.NavigationEvents
 import com.zamfir.intercambista.presentation.screen.main.coins.CoinScreenNavigation
 import com.zamfir.intercambista.presentation.screen.main.coins.CoinsViewModel
 import com.zamfir.intercambista.presentation.screen.main.exchange.ExchangeIntents
 import com.zamfir.intercambista.presentation.screen.main.exchange.ExchangeScreenNavigation
-import com.zamfir.intercambista.presentation.screen.main.exchange.ExchangeState
 import com.zamfir.intercambista.presentation.screen.main.exchange.ExchangeViewModel
 import com.zamfir.intercambista.presentation.screen.main.navigation.MainScreenNavDestination
 
@@ -49,6 +42,7 @@ import com.zamfir.intercambista.presentation.screen.main.navigation.MainScreenNa
 @Composable
 fun MainScreenNavigation(
     navController: NavController,
+    windowSizeClass : WindowSizeClass,
     viewModel: MainViewModel = hiltViewModel()
 ){
 
@@ -65,11 +59,11 @@ fun MainScreenNavigation(
         }
     }
 
-    MainScreen(viewModel)
+    MainScreen(viewModel, windowSizeClass)
 }
 
 @Composable
-fun MainScreen(viewModel: MainViewModel) {
+fun MainScreen(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
 
     val navState by viewModel.navState.collectAsStateWithLifecycle()
 
@@ -83,7 +77,7 @@ fun MainScreen(viewModel: MainViewModel) {
         }
 
         bottomNavController.navigate(route){
-            popUpTo(bottomNavController.graph.startDestinationId) { saveState = false }
+            popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }
             launchSingleTop = true
             restoreState = false
         }
@@ -116,6 +110,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 .padding(paddingValues)
         ) {
             MainBottomNavHost(
+                windowSizeClass = windowSizeClass,
                 navController = bottomNavController,
                 onAction = viewModel::onIntent
             )
@@ -125,6 +120,7 @@ fun MainScreen(viewModel: MainViewModel) {
 
 @Composable
 fun MainBottomNavHost(
+    windowSizeClass: WindowSizeClass,
     navController: NavHostController,
     onAction: (MainScreenIntent) -> Unit
 ) {
@@ -134,17 +130,14 @@ fun MainBottomNavHost(
     ) {
         composable("exchange") { backStackEntry ->
             val exchangeVm : ExchangeViewModel = hiltViewModel()
-            val uiState by exchangeVm.state.collectAsStateWithLifecycle()
-            val dialogState by exchangeVm.dialogState.collectAsStateWithLifecycle()
+            val uiState by exchangeVm.state.collectAsState()
+            val dialogState by exchangeVm.dialogState.collectAsState()
 
-            // Observa a entrada atual da pilha de navegação
             val currentEntry by navController.currentBackStackEntryAsState()
             val isCurrentDestination = currentEntry?.destination?.route == "exchange"
 
-            // Recarrega toda vez que esta tela se torna o destino atual
             LaunchedEffect(isCurrentDestination) {
                 if (isCurrentDestination) {
-                    Log.d("MainScreen-Exchange", "Navegou para exchange, recarregando...")
                     exchangeVm.onIntent(ExchangeIntents.OnRefresh)
                 }
             }
@@ -155,17 +148,10 @@ fun MainBottomNavHost(
                 }
             }
 
-            Log.d("MainScreen-Exchange", "Estado coletado: ${
-                when(uiState) {
-                    is ExchangeState.Success -> "${(uiState as ExchangeState.Success).mainUi.favoriteCoins.size} moedas"
-                    is ExchangeState.Loading -> "Loading"
-                    is ExchangeState.Error -> "Error"
-                }
-            }")
-
             ExchangeScreenNavigation(
                 uiState,
                 dialogState,
+                windowSizeClass,
                 exchangeVm::onIntent
             )
         }
@@ -181,11 +167,6 @@ fun MainBottomNavHost(
             CalculatorScreen()
         }
     }
-}
-
-@Composable
-fun CoinsScreen(){
-    Text("Moedas")
 }
 
 @Composable
@@ -205,21 +186,21 @@ fun MainBottomBar(
         NavigationBarItem(
             selected = current == MainScreenNavDestination.Exchange,
             onClick = { onItemClick(MainScreenNavDestination.Exchange) },
-            icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Cotações") },
+            icon = { Icon(painterResource(R.drawable.baseline_currency_exchange_24), contentDescription = "Cotações") },
             label = { Text("Cotações") }
         )
 
         NavigationBarItem(
             selected = current == MainScreenNavDestination.Coins,
             onClick = { onItemClick(MainScreenNavDestination.Coins) },
-            icon = { Icon(Icons.Default.Info, contentDescription = "Moedas") },
+            icon = { Icon(painterResource(R.drawable.outline_universal_currency_alt_24), contentDescription = "Moedas") },
             label = { Text("Moedas") }
         )
 
         NavigationBarItem(
             selected = current == MainScreenNavDestination.Calculator,
             onClick = { onItemClick(MainScreenNavDestination.Calculator) },
-            icon = { Icon(Icons.Default.AccountBox, contentDescription = "Calculadora") },
+            icon = { Icon(painterResource(R.drawable.rounded_calculate_24), contentDescription = "Calculadora") },
             label = { Text("Calculadora") }
         )
     }

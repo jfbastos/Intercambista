@@ -1,13 +1,13 @@
 package com.zamfir.intercambista.presentation.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
+import com.zamfir.intercambista.R
 
 @Composable
 fun AlertDialogComponent(
@@ -15,7 +15,7 @@ fun AlertDialogComponent(
     onConfirmation: () -> Unit,
     dialogTitle: String,
     dialogText: String,
-    icon: ImageVector,
+    icon: Painter,
 ) {
     AlertDialog(
         icon = {
@@ -55,7 +55,7 @@ fun AlertDialogComponent(
 fun SimpleAlertDialog(msg : String, onDismissRequest : () -> Unit){
     AlertDialog(
         icon = {
-            Icon(Icons.Default.CheckCircle, contentDescription = "Falha icon")
+            Icon(painterResource(R.drawable.outline_check_circle_24), contentDescription = "Falha icon")
         },
         title = {
             Text(text = "Falha")

@@ -1,11 +1,9 @@
 package com.zamfir.intercambista.presentation.screen.main.exchange
 
 import android.content.res.Configuration
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,18 +18,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material3.ElevatedFilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -42,39 +41,80 @@ import androidx.compose.ui.unit.sp
 import com.zamfir.intercambista.R
 import com.zamfir.intercambista.data.database.dto.ExchangeDto
 import com.zamfir.intercambista.data.database.entity.Currency
+import com.zamfir.intercambista.data.enums.SortOption
 import com.zamfir.intercambista.presentation.components.AlertDialogComponent
 import com.zamfir.intercambista.presentation.components.CountryFlagImageComponent
+import com.zamfir.intercambista.presentation.components.CustomErrorDialog
 import com.zamfir.intercambista.presentation.components.HorizontalSpacerOf
+import com.zamfir.intercambista.presentation.screen.commom.DialogLoading
 import com.zamfir.intercambista.presentation.theme.IntercambistaTheme
 
 @Composable
 fun ExchangeScreenNavigation(
     exchangeUiState: ExchangeState,
     dialogState: ExchangeDialogState,
+    windowSizeClass: WindowSizeClass,
     onAction: (ExchangeIntents) -> Unit
 ) {
-    ExchangeScreen(exchangeUiState, onAction)
+    ExchangeScreen(exchangeUiState, windowSizeClass,onAction)
     Dialogs(dialogState, onAction)
 }
 
 @Composable
-private fun ExchangeScreen(uiState: ExchangeState, onAction: (ExchangeIntents) -> Unit){
-    Log.d("ExchangeScreen", "Recompondo com estado: ${
-        when(uiState) {
-            is ExchangeState.Success -> "${uiState.mainUi.favoriteCoins.size} moedas"
-            else -> uiState::class.simpleName
-        }
-    }")
+private fun ExchangeScreen(
+    uiState: ExchangeState,
+    windowSizeClass: WindowSizeClass,
+    onAction: (ExchangeIntents) -> Unit
+){
 
+    LaunchedEffect(uiState) {
+        when(uiState){
+            ExchangeState.UpdatingCoins -> onAction(ExchangeIntents.OnLoadingDialog)
+            is ExchangeState.Error -> onAction(ExchangeIntents.OnFailureDialog(uiState.msg, uiState.exception))
+            else -> {}
+        }
+    }
 
     when (val state = uiState) {
         is ExchangeState.Error -> {}
         ExchangeState.Loading -> {}
+        ExchangeState.UpdatingCoins -> {}
         is ExchangeState.Success -> {
-            ExchangeScreen(
-                state.mainUi.baseCoin,
+            SetOrientation(windowSizeClass.widthSizeClass, state.mainUi.baseCoin,
                 state.mainUi.lastUpdate,
                 state.mainUi.favoriteCoins,
+                state.sortType,
+                onAction)
+        }
+    }
+}
+
+@Composable
+private fun SetOrientation(
+    orientation: WindowWidthSizeClass,
+    baseCoin: Currency,
+    lastUpdate: String,
+    favoriteCoins: List<ExchangeDto>,
+    sortType: SortOption,
+    onAction: (ExchangeIntents) -> Unit
+){
+    when (orientation) {
+        WindowWidthSizeClass.Compact -> {
+            ExchangeScreenPortrait(
+                baseCoin,
+                lastUpdate,
+                favoriteCoins,
+                sortType,
+                onAction
+            )
+        }
+        WindowWidthSizeClass.Medium,
+        WindowWidthSizeClass.Expanded -> {
+            ExchangeScreenLandscape(
+                baseCoin,
+                lastUpdate,
+                favoriteCoins,
+                sortType,
                 onAction
             )
         }
@@ -84,7 +124,7 @@ private fun ExchangeScreen(uiState: ExchangeState, onAction: (ExchangeIntents) -
 @Composable
 private fun Dialogs(dialogsState : ExchangeDialogState, onAction: (ExchangeIntents) -> Unit){
 
-    when(dialogsState){
+    when(val state = dialogsState){
         ExchangeDialogState.NoneShown -> {}
         ExchangeDialogState.ShowConfirmationCoinChangeDialog -> {
             AlertDialogComponent(
@@ -94,55 +134,94 @@ private fun Dialogs(dialogsState : ExchangeDialogState, onAction: (ExchangeInten
                     onAction(ExchangeIntents.OnChangeCoinConfirmed)
                 },
                 onDismissRequest = { onAction(ExchangeIntents.OnDismissDialog) },
-                icon = Icons.Default.CheckCircle
+                icon = painterResource(R.drawable.outline_check_circle_24)
+            )
+        }
+
+        ExchangeDialogState.ShowLoadingDialog -> {
+            DialogLoading("Atualizando moedas...")
+        }
+
+        is ExchangeDialogState.ShowErrorDialog -> {
+            CustomErrorDialog(
+                mensagem = state.msg,
+                stackTrace = state.exception?.stackTraceToString() ?: "",
+                isDismissable = true,
+                onConfirm = { onAction(ExchangeIntents.OnDismissDialog) },
+                onDismiss = { onAction(ExchangeIntents.OnDismissDialog) }
             )
         }
     }
 }
 
 @Composable
-private fun ExchangeScreen(
+private fun ExchangeScreenPortrait(
     baseCoin: Currency,
     lastUpdate: String,
     favoriteCoins: List<ExchangeDto>,
+    sortType: SortOption,
     onAction: (ExchangeIntents) -> Unit
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-        //.clickable { onAction(CoinSelectionIntents.OnShowConfirmationDialog(currency)) }
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.onTertiary),
-            contentAlignment = Alignment.Center
+    Surface {
+        Column(
+            Modifier
+                .fillMaxSize().background(MaterialTheme.colorScheme.onTertiary),
+        ) {
+            Header(baseCoin, lastUpdate,sortType, onAction)
+            ExchangesList(favoriteCoins, onAction)
+        }
+    }
+}
+
+
+@Composable
+private fun ExchangeScreenLandscape(
+    baseCoin: Currency,
+    lastUpdate: String,
+    favoriteCoins: List<ExchangeDto>,
+    sortType: SortOption,
+    onAction: (ExchangeIntents) -> Unit
+) {
+    Surface {
+        Row(
+            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.onTertiary),
         ) {
             Column(
-                Modifier
-                    .fillMaxSize()
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
             ) {
-                Header(baseCoin, lastUpdate, onAction)
-                ExchangesList(favoriteCoins)
+                Header(baseCoin, lastUpdate, sortType, onAction)
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(2f)
+                    .fillMaxHeight()
+            ) {
+                ExchangesList(favoriteCoins, onAction)
             }
         }
     }
 }
 
 @Composable
-private fun Header(baseCoin: Currency, lastUpdate: String, onAction : (ExchangeIntents) -> Unit) {
+private fun Header(
+    baseCoin: Currency,
+    lastUpdate: String,
+    sortType: SortOption,
+    onAction: (ExchangeIntents) -> Unit
+) {
     Column(Modifier.padding(8.dp)) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
                 .height(20.dp)
                 .padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically
         ) {
-
             Image(
-                imageVector = Icons.Rounded.DateRange,
+                painter = painterResource(R.drawable.baseline_cloud_download_24),
                 contentDescription = null,
-                colorFilter = ColorFilter.tint(if(isSystemInDarkTheme()) Color.White else Color.Black)
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
             )
 
             Spacer(
@@ -162,9 +241,7 @@ private fun Header(baseCoin: Currency, lastUpdate: String, onAction : (ExchangeI
         HorizontalSpacerOf(18)
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp), verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.height(50.dp), verticalAlignment = Alignment.CenterVertically
         ) {
             CountryFlagImageComponent(
                 baseCoin.flag,
@@ -190,44 +267,83 @@ private fun Header(baseCoin: Currency, lastUpdate: String, onAction : (ExchangeI
 
         HorizontalSpacerOf(18)
 
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 4.dp)
-                .clickable {
-                    onAction(ExchangeIntents.OnChangeBaseCoin)
-                }) {
+        Row(modifier = Modifier.padding(horizontal = 4.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically){
+            BotaoTrocarMoeda(onAction)
 
-            Image(
-                painterResource(if(isSystemInDarkTheme()) R.drawable.baseline_currency_exchange_24 else R.drawable.outline_currency_exchange_24_black), null, modifier = Modifier
-                    .size(16.dp)
-                    .align(Alignment.CenterVertically)
-            )
+            Spacer(modifier = Modifier.weight(1f))
 
-            Spacer(modifier = Modifier.width(6.dp))
+            ElevatedFilterChip(
+                onClick = { onAction(ExchangeIntents.OnFilter) },
+                label = when(sortType){
+                    SortOption.ASCENDING ->  {{ Text("Valor - Crescente") }}
+                    SortOption.DESCENDING -> {{ Text("Valor - Decrescente") }}
+                },
+                selected = false,
+                trailingIcon =when(sortType) {
+                    SortOption.ASCENDING -> {
+                        {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_arrow_drop_up_24),
+                                contentDescription = "Asc icon",
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    }
 
-            Text(
-                text = "Trocar moeda",
-                modifier = Modifier.align(Alignment.CenterVertically),
-                fontSize = 14.sp,
-                textDecoration = TextDecoration.Underline
+                    SortOption.DESCENDING -> {
+                        {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_arrow_drop_down_24),
+                                contentDescription = "desc icon",
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    }
+                }
             )
         }
     }
 }
 
 @Composable
-private fun ExchangesList(favoriteCoins: List<ExchangeDto>) {
-    Log.d("ExchangesList", "Renderizando lista com ${favoriteCoins.size} moedas")
+private fun BotaoTrocarMoeda(onAction: (ExchangeIntents) -> Unit) {
+    Row(
+        modifier = Modifier
+            .clickable {
+                onAction(ExchangeIntents.OnChangeBaseCoin)
+            }
+    ) {
+        Image(
+            painterResource(R.drawable.rounded_compare_arrows_24), null,
+            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
+            modifier = Modifier
+                .size(16.dp)
+                .align(Alignment.CenterVertically)
+        )
 
+        Spacer(modifier = Modifier.width(6.dp))
+
+        Text(
+            text = "Trocar moeda",
+            modifier = Modifier.align(Alignment.CenterVertically),
+            fontSize = 14.sp,
+            textDecoration = TextDecoration.Underline
+        )
+    }
+}
+
+@Composable
+private fun ExchangesList(favoriteCoins: List<ExchangeDto>, onAction: (ExchangeIntents) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .clip(shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .background(MaterialTheme.colorScheme.background)
+            .padding(8.dp)
     ) {
+
         LazyColumn(
             modifier = Modifier
-                .padding(8.dp)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -247,7 +363,6 @@ private fun CurrencyListItem(exchange: ExchangeDto) {
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-        //.clickable { onAction(CoinSelectionIntents.OnShowConfirmationDialog(currency)) }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -287,21 +402,17 @@ private fun CurrencyListItem(exchange: ExchangeDto) {
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     name = "DefaultPreviewDark"
 )
-@Preview(
-    showSystemUi = true,
-    uiMode = Configuration.UI_MODE_NIGHT_NO,
-    name = "DefaultPreviewLight"
-)
 @Composable
 private fun Preview() {
     IntercambistaTheme {
-        ExchangeScreen(
+        ExchangeScreenPortrait(
             baseCoin = Currency(
                 code = "BRL",
                 info = "Real Brasileiro",
                 flag = "",
                 symbol = "R$"
             ),
+            lastUpdate = "11/11/1111 at 11:11:11",
             favoriteCoins = listOf(
                 ExchangeDto(
                     code = "BRL",
@@ -367,7 +478,7 @@ private fun Preview() {
                     rate = "0.0"
                 ),
             ),
-            lastUpdate = "11/11/1111 at 11:11:11"
-        ){}
+            sortType = SortOption.DESCENDING
+        ) {}
     }
 }

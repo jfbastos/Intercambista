@@ -1,5 +1,6 @@
 package com.zamfir.intercambista.presentation.navigation
 
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -9,7 +10,7 @@ import com.zamfir.intercambista.presentation.screen.customsplash.CustomSplashScr
 import com.zamfir.intercambista.presentation.screen.main.MainScreenNavigation
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(windowSizeClass: WindowSizeClass) {
     val navController = rememberNavController()
 
     NavHost(
@@ -23,7 +24,7 @@ fun AppNavigation() {
             CoinSelectionNavigation(navController)
         }
         composable("MainScreen") {
-            MainScreenNavigation(navController)
+            MainScreenNavigation(navController = navController, windowSizeClass = windowSizeClass)
         }
     }
 }

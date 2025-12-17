@@ -24,6 +24,7 @@ retrofit = "2.9.0"
 hilt = "2.51.1"
 animationGraphicsAndroid = "1.7.6"
 appcompat = "1.7.0"
+material3WindowSizeClassAndroid = "1.4.0"
 
 [libraries]
 accompanist-systemuicontroller-v0320 = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
@@ -56,6 +57,7 @@ okhttp3-logging-interceptor = { module = "com.squareup.okhttp3:logging-intercept
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 androidx-animation-graphics-android = { group = "androidx.compose.animation", name = "animation-graphics-android", version.ref = "animationGraphicsAndroid" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-material3-window-size-class1-android = { group = "androidx.compose.material3", name = "material3-window-size-class-android", version.ref = "material3WindowSizeClassAndroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

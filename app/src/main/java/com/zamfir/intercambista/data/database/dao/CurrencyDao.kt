@@ -42,6 +42,6 @@ interface CurrencyDao {
     @Query("UPDATE CURRENCY SET IS_FAVORITED = 0 WHERE CODE = :code")
     fun removeFavorite(code : String)
 
-    @Query("UPDATE CURRENCY SET IS_FAVORITED = :isFavorite WHERE CODE = :code")
-    fun toggleFavorite(code : String, isFavorite : Boolean)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertOrReplaceCoin(coin : Currency)
 }

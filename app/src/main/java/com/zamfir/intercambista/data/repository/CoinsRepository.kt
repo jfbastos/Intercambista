@@ -10,6 +10,7 @@ import com.zamfir.intercambista.data.database.AppDatabase
 import com.zamfir.intercambista.data.database.dto.ExchangeDto
 import com.zamfir.intercambista.data.database.entity.Currency
 import com.zamfir.intercambista.data.database.entity.CurrencyHistory
+import com.zamfir.intercambista.data.enums.SortOption
 import com.zamfir.intercambista.data.rest.dto.restcountries.CountriesInfo
 import com.zamfir.intercambista.data.rest.dto.restcountries.CountryApiResponseDTO
 import com.zamfir.intercambista.data.rest.service.ExchageRatesService
@@ -22,20 +23,18 @@ import com.zamfir.intercambista.util.Constants.SHARED_KEY_BASE_CURRENCY
 import com.zamfir.intercambista.util.Constants.UPDATE_DATETIME_FORMAT
 import com.zamfir.intercambista.util.convertToLocalDateTime
 import com.zamfir.intercambista.util.getDateNowFormatted
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import okhttp3.ResponseBody
 import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.collections.component1
-import kotlin.collections.component2
 
 @Singleton
 class CoinsRepository @Inject constructor(
@@ -52,6 +51,10 @@ class CoinsRepository @Inject constructor(
     }
 
     suspend fun getCurrencies() = withContext(Dispatchers.IO){
+        return@withContext appDatabase.currencyDao().getCurrencies()
+    }
+
+    suspend fun getFavoritableCoins() = withContext(Dispatchers.IO){
         return@withContext appDatabase.currencyDao().getCurrencies()
     }
 
@@ -191,7 +194,7 @@ class CoinsRepository @Inject constructor(
         }
     }
 
-    private fun saveExchangeHistory(currencyHistory: CurrencyHistory) = CoroutineScope(Dispatchers.IO).launch {
+    private suspend fun saveExchangeHistory(currencyHistory: CurrencyHistory) = withContext(Dispatchers.IO){
         val existentHistory : CurrencyHistory? = appDatabase.historyDao().getHistoryByCode(currencyHistory.inCode)
 
         if(existentHistory != null){
@@ -211,7 +214,7 @@ class CoinsRepository @Inject constructor(
                 ExchangeDto(
                     info = coin.info,
                     code = coin.code,
-                    rate = history?.value?.ifBlank { "s/ cotação" } ?: "s/ cotação",
+                    rate = getRate(history?.value).ifBlank { "s/ cotação" },
                     flag = coin.flag,
                     symbol = coin.symbol
                 )
@@ -220,7 +223,28 @@ class CoinsRepository @Inject constructor(
 
         exchanges.sortByDescending { it.rate != "s/ cotação" }
 
-        return@withContext exchanges
+        return@withContext exchanges.toList()
+    }
+
+    private fun getRate(rate : String?) : String{
+        val rateAsDouble = rate?.toDoubleOrNull() ?: return ""
+
+        return String.format(Locale("Pt", "Br"),"%.4f", rateAsDouble)
+    }
+
+    suspend fun checkFavCoinsWithoutRates(onFinish : (List<ExchangeDto>) -> Unit, onFailure : (Throwable) -> Unit) = withContext(Dispatchers.IO){
+
+        val coinHistory = appDatabase.historyDao().getAllHistory()?.map { it.inCode } ?: listOf()
+
+        val favCoins = appDatabase.currencyDao().getFavoritesCurrenciesCode() ?: return@withContext
+
+        if((favCoins.isNotEmpty() && coinHistory.isEmpty()) || !coinHistory.containsAll(favCoins)){
+            fetchCurrencyExchange().onSuccess {
+                onFinish(getFavoritesCurrenciesRates())
+            }.onFailure {
+                onFailure(it)
+            }
+        }
     }
 
     suspend fun getLastUpdate() : String = withContext(Dispatchers.IO){
@@ -242,8 +266,27 @@ class CoinsRepository @Inject constructor(
     suspend fun toggleFavorite(coin : Currency) = withContext(Dispatchers.IO){
         val editedCoin = coin.copy(favorited = coin.favorited.not())
 
-        appDatabase.currencyDao().toggleFavorite(editedCoin.code, editedCoin.favorited)
+        appDatabase.currencyDao().insertOrReplaceCoin(editedCoin)
 
         return@withContext editedCoin
+    }
+
+    suspend fun toggleListSortPreference() = withContext(Dispatchers.IO){
+        val actual = prefs.getString("EXCHANGES_SORT_PREF", "DSC") ?: "DSC"
+
+        when(actual){
+            "DSC" -> prefs.edit { putString("EXCHANGES_SORT_PREF", "ASC") }
+            "ASC" -> prefs.edit { putString("EXCHANGES_SORT_PREF", "DSC") }
+        }
+
+        val new = prefs.getString("EXCHANGES_SORT_PREF", "DSC") ?: "DSC"
+
+        return@withContext SortOption.getByValue(new)
+    }
+
+    suspend fun getListSortPreference() : SortOption = withContext(Dispatchers.IO){
+        val sort = prefs.getString("EXCHANGES_SORT_PREF", "DSC") ?: "DSC"
+
+        return@withContext SortOption.getByValue(sort)
     }
 }

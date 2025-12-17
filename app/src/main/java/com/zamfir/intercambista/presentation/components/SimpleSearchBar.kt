@@ -2,9 +2,6 @@ package com.zamfir.intercambista.presentation.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,8 +13,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.zamfir.intercambista.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +41,7 @@ fun SimpleSearchBar(
         modifier = modifier,
         placeholder = { Text(placeholder) },
         leadingIcon = {
-            Icon(Icons.Default.Search, contentDescription = null)
+            Icon(painterResource(R.drawable.rounded_search_24), contentDescription = null)
         },
         trailingIcon = {
             if (text.isNotEmpty()) {
@@ -52,7 +51,7 @@ fun SimpleSearchBar(
                         onSearchChange("")
                     }
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Limpar")
+                    Icon(painterResource(R.drawable.rounded_close_24), contentDescription = "Limpar")
                 }
             }
         }

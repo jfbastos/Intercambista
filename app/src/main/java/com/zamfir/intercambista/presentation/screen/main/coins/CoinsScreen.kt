@@ -18,10 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,12 +29,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.zamfir.intercambista.R
 import com.zamfir.intercambista.data.database.entity.Currency
 import com.zamfir.intercambista.presentation.components.CountryFlagImageComponent
 import com.zamfir.intercambista.presentation.components.SimpleSearchBar
-import com.zamfir.intercambista.presentation.screen.main.exchange.ExchangeIntents
 import com.zamfir.intercambista.presentation.theme.IntercambistaTheme
 import com.zamfir.intercambista.presentation.theme.outlineDark
 
@@ -149,7 +147,7 @@ private fun CoinsListItem(coin: Currency, onAction: (CoinsIntents) -> Unit) {
             )
 
             Image(
-                imageVector = Icons.Rounded.Star,
+                painter = painterResource(R.drawable.round_star_24) ,
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(starColor),
                 modifier = Modifier
